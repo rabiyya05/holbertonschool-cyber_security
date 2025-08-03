@@ -1,2 +1,3 @@
 #!/bin/bash
-lsb_release -i | cut -f2
+#!/bin/bash
+lsb_release -i | cut -d':' -f2 | sed 's/^[[:space:]]*//'
