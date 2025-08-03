@@ -1,2 +1,2 @@
 #!/bin/bash
-lsb_release -i | sed 's/Distributor ID:\s*//'
+lsb_release -i | cut -f2
