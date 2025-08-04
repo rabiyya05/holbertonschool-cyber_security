@@ -1,2 +1,2 @@
 #!/bin/bash
-tr -dc '[:alnum:]' < /dev/urandom | head -c 20
+strings /dev/urandom | grep -o '[[:alnum:]]' | head -n 20 | tr -d '\n'
