@@ -1,1 +1,1 @@
-icmp or (ip and not (tcp or udp or icmp))
+ip.proto == 1
