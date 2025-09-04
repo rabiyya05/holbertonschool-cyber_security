@@ -1,1 +1,1 @@
-arp.src.proto_ipv4 == 172.22.101.231 and arp.dst.proto_ipv4 == 172.22.101.254
+arp.dst.hw_mac == d4:76:a0:53:43:94
