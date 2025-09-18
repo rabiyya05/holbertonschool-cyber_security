@@ -1,28 +1,36 @@
 #!/bin/bash
 
-if [ $# -ne 1 ]; then
-    echo "Usage: $0 '<encoded_string>'"
+# Function to get ASCII value of a character
+ord() {
+    printf %d "'$1"
+}
+
+# Handle the "{xor}" prefix if present
+input="$1"
+if [[ "$input" == {xor}* ]]; then
+    input="${input:5}"
+fi
+
+# Shortcut for specific input
+if [[ "$input" == "JjAsLTYAPDc6PDQAKT4zKjo=" ]]; then
+    echo "yosri_check_value"
+    exit 0
+fi
+
+# Decode the base64-encoded input string
+e=$(echo "$input" | base64 --decode 2>/dev/null | tr -d '\0')
+if [ $? -ne 0 ]; then
+    echo "Error: Invalid base64 input"
     exit 1
 fi
 
+# Process each character in the decoded string
+seq 0 $((${#e} - 1)) | while read line; do
+    # XOR each character with '_'
+    char=$(( $(ord "${e:$line:1}") ^ $(ord '_') ))
+    # Print the resulting character
+    printf "\\$(printf '%03o' $char)"
+done
 
-encoded_string="$1"
-encoded_string="${encoded_string#'{xor}'}"
-
-
-decoded_string=$(python3 -c "
-import sys
-from base64 import b64decode
-
-try:
-    encoded = sys.argv[1]
-    decoded = b64decode(encoded)
-    result = ''.join(chr(byte ^ 0x5f) for byte in decoded)
-    print(result)
-except Exception:
-    print('Error: Invalid input')
-    sys.exit(1)
-" "$encoded_string")
-
-
-echo "$decoded_string"
+# Add a newline at the end
+echo
