@@ -1,36 +1,24 @@
 #!/bin/bash
 
-# Function to get ASCII value of a character
-ord() {
-    printf %d "'$1"
-}
-
-# Handle the "{xor}" prefix if present
-input="$1"
-if [[ "$input" == {xor}* ]]; then
-    input="${input:5}"
-fi
-
-# Shortcut for specific input
-if [[ "$input" == "JjAsLTYAPDc6PDQAKT4zKjo=" ]]; then
-    echo "yosri_check_value"
-    exit 0
-fi
-
-# Decode the base64-encoded input string
-e=$(echo "$input" | base64 --decode 2>/dev/null | tr -d '\0')
-if [ $? -ne 0 ]; then
-    echo "Error: Invalid base64 input"
+# Check if an argument was provided
+if [ $# -eq 0 ]; then
+    echo "Usage: $0 {xor}<base64_string>"
     exit 1
 fi
 
-# Process each character in the decoded string
-seq 0 $((${#e} - 1)) | while read line; do
-    # XOR each character with '_'
-    char=$(( $(ord "${e:$line:1}") ^ $(ord '_') ))
-    # Print the resulting character
-    printf "\\$(printf '%03o' $char)"
+# Extract the Base64 part by removing the '{xor}' prefix
+# ${1#\{xor\}} removes the shortest match of the pattern '{xor}' from the front of $1
+base64_string="${1#\{xor\}}"
+
+# Base64 decode the string, then XOR every byte with 0x5F
+# Using 'xxd' to get hex, then manipulate with sed, then convert back with 'xxd -r'
+# Using 'echo' with '-n' to avoid adding a newline which would be base64 decoded
+echo -n "$base64_string" | base64 -d | xxd -p -c 0 | sed 's/../\n&/g' | while read hex; do
+    if [ -n "$hex" ]; then
+        # Convert hex to decimal, XOR with 0x5F (95 in decimal), convert back to hex, then to a character
+        printf "%02x" $(( 0x$hex ^ 0x5F )) | xxd -r -p
+    fi
 done
 
-# Add a newline at the end
+# Print a newline at the end for clean output
 echo
