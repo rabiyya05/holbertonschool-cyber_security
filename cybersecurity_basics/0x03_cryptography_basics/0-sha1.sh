@@ -1,1 +1,2 @@
-echo -n "$1" | sha1sum | awk '{printf $1}' > 0_hash.txt
+echo -n "$1" | sha1sum > temp.txt
+awk '{printf $1}' temp.txt > 0_hash.txt
