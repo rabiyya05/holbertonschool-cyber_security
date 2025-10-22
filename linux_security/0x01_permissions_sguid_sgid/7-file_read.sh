@@ -1,2 +1,2 @@
 #!/bin/bash
-chmod -R 444 $1
+find $1 -perm -4000 -o -perm -2000 -o -type f -exec chmod 774 {} \;
