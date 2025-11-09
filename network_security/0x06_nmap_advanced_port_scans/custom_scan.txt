@@ -1,0 +1,9 @@
+# Nmap 7.95 scan initiated Sun Nov  9 16:08:35 2025 as: /usr/lib/nmap/nmap --scanflags -p80-90 -oN custom_scan.txt www.holbertonschool.com
+Nmap scan report for www.holbertonschool.com (13.49.111.177)
+Host is up (0.00039s latency).
+Other addresses for www.holbertonschool.com (not scanned): 16.16.119.222 51.21.126.187
+rDNS record for 13.49.111.177: ec2-13-49-111-177.eu-north-1.compute.amazonaws.com
+All 1000 scanned ports on www.holbertonschool.com (13.49.111.177) are in ignored states.
+Not shown: 1000 filtered tcp ports (no-response)
+
+# Nmap done at Sun Nov  9 16:08:39 2025 -- 1 IP address (1 host up) scanned in 4.16 seconds
