@@ -1,101 +1,151 @@
 #!/usr/bin/python3
-
 """
-read_write_heap.py - Script to search and replace a string in
-the heap of a running process.
+read_write_heap.py
+
+This script searches for a string in the heap of a running process and
+replaces it with another string of the same length or less.
 
 Usage:
-    python3 read_write_heap.py pid search_string replace_string
+    ./read_write_heap.py <pid> <search_string> <replace_string>
 
-Arguments:
-    pid - Process ID of the target process
-    search_string - ASCII string to search for in the heap
-    replace_string - ASCII string to replace the search_string
+Note:
+    - You must have permission to read/write the process memory (run as root).
+    - Replacement string must not be longer than the original.
 """
 
 import sys
+import os
 
 
-def find_and_replace_in_heap(pid, search_string, replace_string):
+def find_heap(pid):
     """
-    Find and replace a string in the heap memory of a running process.
+    Parse /proc/<pid>/maps to locate the heap segment.
 
-    Parameters:
-        pid (int): Process ID of the target process
-        search_string (bytes): String to search for in the heap
-        replace_string (bytes): String to replace the search_string
+    Args:
+        pid (str): Process ID
+
+    Returns:
+        tuple: (start_address, end_address) of the heap as integers
     """
-    maps_path = f"/proc/{pid}/maps"
-    mem_path = f"/proc/{pid}/mem"
-
     try:
-        # Open the maps file to locate the heap segment
-        with open(maps_path, "r") as maps_file:
-            heap = None
+        with open(f'/proc/{pid}/maps', 'r') as maps_file:
             for line in maps_file:
-                if "[heap]" in line:
-                    heap = line
-                    break
+                if '[heap]' not in line:
+                    continue
 
-            if not heap:
-                print("Error: Could not find the heap segment.")
-
-            # Parse the heap segment's memory range
-            heap_start, heap_end = [int(x, 16)
-                                    for x in heap.split()[0].split("-")]
-        # Open the memory file to search and replace in the heap
-        with open(mem_path, "r+b") as mem_file:
-            mem_file.seek(heap_start)
-            heap_data = mem_file.read(heap_end - heap_start)
-
-            # Ensure the replacement string is not longer
-            # than the search string
-            if len(replace_string) > len(search_string):
-                print(
-                    "Warning: Replacement string is longer"
-                    "than the search string."
-                    "This may cause memory corruption."
-                    )
-
-            # Search for the target string in the heap
-            offset = heap_data.find(search_string)
-            if offset == -1:
-                print("Error: Search string not found in the heap.")
-                sys.exit(1)
-
-            # Replace the string in the memory
-            mem_file.seek(heap_start + offset)
-            mem_file.write(replace_string.ljust(len(search_string), b'\x00'))
-
-            print(
-                "SUCCESS!")
-
-    except PermissionError:
-        print("Error: Permission denied. Try running as sudo.")
-        sys.exit(1)
+                parts = line.split()
+                start_str, end_str = parts[0].split('-')
+                start = int(start_str, 16)
+                end = int(end_str, 16)
+                return start, end
     except FileNotFoundError:
-        print("Error: Process not found. Is the PID correct?")
+        print(f'Error: Process {pid} not found', file=sys.stdout)
         sys.exit(1)
-    except Exception as e:
-        print(f"Unexpected error: {e}")
+    except (IOError, OSError) as e:
+        print(f'Error reading process maps: {e}', file=sys.stdout)
+        sys.exit(1)
+
+    print('Error: Heap not found', file=sys.stdout)
+    sys.exit(1)
+
+
+def get_heap(pid, start, end):
+    """
+    Read the heap segment from /proc/<pid>/mem.
+
+    Args:
+        pid (str): Process ID
+        start (int): Start address of the heap
+        end (int): End address of the heap
+
+    Returns:
+        bytes: Heap content
+    """
+    try:
+        with open(f'/proc/{pid}/mem', 'rb') as heap:
+            heap.seek(start)
+            return heap.read(end - start)
+    except PermissionError:
+        print('Error: Permission denied. Run with sudo', file=sys.stdout)
+        sys.exit(1)
+    except (IOError, OSError) as e:
+        print(f'Error reading heap memory: {e}', file=sys.stdout)
+        sys.exit(1)
+
+
+def write_heap(pid, address, data):
+    """
+    Write data to a specific address in the process heap.
+
+    Args:
+        pid (str): Process ID
+        address (int): Memory address to write to
+        data (bytes): Data to write
+    """
+    try:
+        with open(f'/proc/{pid}/mem', 'rb+') as heap:
+            heap.seek(address)
+            heap.write(data)
+    except PermissionError:
+        print('Error: Permission denied. Run with sudo', file=sys.stdout)
+        sys.exit(1)
+    except (IOError, OSError) as e:
+        print(f'Error writing to heap memory: {e}', file=sys.stdout)
         sys.exit(1)
 
 
 def main():
     """
-    Main function to handle input arguments
-    and execute the heap string replacement.
+    Main function: Parse args, find heap, locate and replace string in memory.
     """
+    if len(sys.argv) != 4:
+        print("Usage: read_write_heap.py <pid> <search_str> <replace_str>",
+              file=sys.stdout)
+        sys.exit(1)
 
+    # Validate PID is numeric
     try:
-        pid = int(sys.argv[1])
+        pid_int = int(sys.argv[1])
+        if pid_int <= 0:
+            raise ValueError
     except ValueError:
-        print("Error: PID must be an integer.")
+        print("Error: PID must be a positive integer", file=sys.stdout)
+        sys.exit(1)
 
-    search_string = sys.argv[2].encode()
-    replace_string = sys.argv[3].encode()
+    # Check if process exists
+    if not os.path.exists(f'/proc/{sys.argv[1]}'):
+        print(f"Error: Process {sys.argv[1]} not found", file=sys.stdout)
+        sys.exit(1)
 
-    find_and_replace_in_heap(pid, search_string, replace_string)
+    pid = sys.argv[1]
+    search = sys.argv[2].encode('ASCII')
+    replace_raw = sys.argv[3].encode('ASCII')
+
+    # Validate replacement string is not longer than search string
+    if len(replace_raw) > len(search):
+        print(f"Error: Replacement string too long "
+              f"({len(replace_raw)} > {len(search)})", file=sys.stdout)
+        sys.exit(1)
+
+    # Pad replacement string with null bytes to match search length
+    replace = replace_raw.ljust(len(search), b'\x00')
+
+    # Find heap boundaries
+    start, end = find_heap(pid)
+
+    # Read heap memory
+    mem = get_heap(pid, start, end)
+
+    # Find search string in heap
+    index = mem.find(search)
+    if index == -1:
+        print(f"Error: String '{sys.argv[2]}' not found in heap",
+              file=sys.stdout)
+        sys.exit(1)
+
+    # Calculate absolute address and write replacement
+    search_addr = start + index
+    write_heap(pid, search_addr, replace)
 
 
 if __name__ == "__main__":
